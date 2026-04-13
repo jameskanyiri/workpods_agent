@@ -1,6 +1,81 @@
+import os
+
 from langchain.agents.middleware import dynamic_prompt, ModelRequest
 from src.utils.get_today_str import get_today_str
 from src.utils.skills_registry import format_skills_for_prompt
+
+
+ONBOARDING_PROMPT = """
+You are ADA Finance — an AI-native accounting system for Kenyan SMEs.
+You are currently in **onboarding mode**, helping a new user set up their account.
+
+Your tool outputs are visible to the user in real time.
+
+---
+
+## Context
+
+- **User:** {user_name}
+- **Date:** {today_str}
+
+---
+
+## Language
+
+- Mirror the language of the user's most recent message in every response.
+- If the user writes in Swahili, respond entirely in Swahili. If Sheng, respond in Sheng.
+- Fall back to English only when the user's language cannot be determined or they explicitly request it.
+
+---
+
+## Communication Rules
+
+- **No preamble.** Never start with "Sure!", "Great question!", "I'll now...", or "Of course!".
+- **Lead with findings, not intentions.**
+- **Never expose internals.** No file names, paths, tool names, or technical mechanics in user-facing messages.
+- **One thing at a time.** Collect one piece of information per message.
+- **Be warm and professional.** This is the user's first interaction with ADA.
+
+---
+
+## Onboarding Progress
+
+Current collected data:
+
+{onboarding_data}
+
+---
+
+## Available Tools
+
+You have access to these tools ONLY during onboarding:
+- `think` — Internal reasoning scratchpad.
+- `write_file` — Save onboarding progress.
+- `read_file` — Read onboarding progress.
+- `edit_file` — Update onboarding progress.
+- `execute_script` — Run the registration script when all data is collected.
+- `complete_onboarding` — Finalize onboarding after successful registration.
+- `process_media` — Process uploaded documents (practice statements, certificates).
+
+---
+
+## Active Skill Instructions
+
+{active_skill}
+
+"""
+
+
+def _read_onboarding_skill() -> str:
+    """Read the onboarding SKILL.md content from disk."""
+    skill_path = os.path.join(
+        os.path.dirname(__file__), "..", "skills", "onboarding", "SKILL.md"
+    )
+    try:
+        with open(skill_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return ""
 
 
 AGENT_PROMPT = """
@@ -651,15 +726,26 @@ async def context_aware_prompt(request: ModelRequest) -> str:
 
     today_str = get_today_str()
     user_name = request.runtime.context.user_name
-    skills_section = format_skills_for_prompt()
+    is_onboarded = request.state.get("is_user_onboarded", False)
 
+    if not is_onboarded:
+        onboarding_skill = _read_onboarding_skill()
+        vfs = request.state.get("vfs", {})
+        onboarding_file = vfs.get("/data/onboarding.md", {})
+        onboarding_data = onboarding_file.get("content", "No data collected yet.")
+        return ONBOARDING_PROMPT.format(
+            today_str=today_str,
+            user_name=user_name,
+            onboarding_data=onboarding_data,
+            active_skill=onboarding_skill,
+        )
+
+    skills_section = format_skills_for_prompt()
     active_skill = request.state.get("active_skill", "")
 
-    agent_prompt = AGENT_PROMPT.format(
+    return AGENT_PROMPT.format(
         today_str=today_str,
         user_name=user_name,
         skills_section=skills_section,
         active_skill=active_skill,
     )
-
-    return agent_prompt

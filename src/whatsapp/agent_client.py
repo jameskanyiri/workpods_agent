@@ -15,7 +15,9 @@ def get_thread_id(phone_number: str) -> str:
     return str(uuid.uuid5(uuid.UUID(THREAD_NAMESPACE), phone_number))
 
 
-async def get_agent_response(phone_number: str, user_message: str) -> str:
+async def get_agent_response(
+    phone_number: str, user_message: str, sender_name: str = ""
+) -> str:
     """Send a message to the LangGraph agent and return the AI response."""
     client = get_client(url=LANGGRAPH_API_URL)
     thread_id = get_thread_id(phone_number)
@@ -28,12 +30,24 @@ async def get_agent_response(phone_number: str, user_message: str) -> str:
         thread_id,
         GRAPH_NAME,
         input={"messages": [{"role": "human", "content": user_message}]},
+        config={"configurable": {"context": {"user_name": sender_name or "No user name"}}},
     )
 
     messages = result.get("messages", [])
-    if messages:
-        last_msg = messages[-1]
-        if last_msg.get("type") == "ai" and isinstance(last_msg.get("content"), str):
-            return last_msg["content"]
+    for msg in reversed(messages):
+        if msg.get("type") != "ai":
+            continue
+        content = msg.get("content")
+        if isinstance(content, str):
+            return content
+        # Handle multimodal responses: extract text from content blocks
+        if isinstance(content, list):
+            text_parts = [
+                block.get("text", "")
+                for block in content
+                if isinstance(block, dict) and block.get("type") == "text"
+            ]
+            if text_parts:
+                return "\n".join(text_parts)
 
     return ""

@@ -9,6 +9,7 @@ class CustomState(AgentState):
     todos: Annotated[NotRequired[list[Todo]], replace_todos_list]
     active_skill: NotRequired[str]
     vfs: Annotated[NotRequired[dict[str, VFile]], merge_vfs]
+    is_user_onboarded: NotRequired[bool] = False
 
 
 
