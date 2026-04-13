@@ -1,0 +1,13 @@
+{
+  "graphs": {
+    "ada_project": "src/agent.py:agent"
+  },
+  "dependencies": [
+    "."
+  ],
+  "env": "./.env",
+  "python_version": "3.13",
+  "http": {
+    "app": "src/whatsapp/webapp.py:app"
+  }
+}

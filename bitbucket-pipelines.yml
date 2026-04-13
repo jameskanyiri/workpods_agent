@@ -1,0 +1,16 @@
+image: node:22
+
+clone:
+    depth: full
+
+pipelines:
+    branches:
+        main:
+            - step:
+                  name: Deploy prod
+                  caches:
+                      - node
+                  script:
+                      - npm i -g @railway/cli
+                      - RAILWAY_TOKEN=$RAILWAY_TOKEN railway up --service=$RAILWAY_SERVICE
+                      - railway logout
