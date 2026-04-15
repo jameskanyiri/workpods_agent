@@ -11,6 +11,7 @@ ONBOARDING_TOOL_NAMES = {
     "execute_script",
     "complete_onboarding",
     "process_media",
+    "write_todos",
 }
 
 

@@ -1,13 +1,6 @@
 from typing import TypedDict, Literal
 
 
-class Todo(TypedDict):
-    id: str
-    label: str
-    status: Literal["pending", "in_progress", "completed"]
-    description: str
-
-
 class VFile(TypedDict):
     """A virtual file in the in-state filesystem."""
     path: str
