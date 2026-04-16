@@ -21,7 +21,7 @@ async def task(
     description: str = "",
     context_data: str = "",
     output_path: str = "",
-    display_name: str = "Running task",
+    display_name: str = "Working",
     runtime: ToolRuntime = None,
 ) -> Command:
     """Dispatch a task to a specialized subagent."""

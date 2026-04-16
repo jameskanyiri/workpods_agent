@@ -34,7 +34,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ada_project
+    container_name: workpods_agent
     ports:
       - "8120:8000"  # Exposes FastAPI on 8123 externally
     depends_on:
@@ -49,7 +49,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       LANGSMITH_API_KEY: ${LANGSMITH_API_KEY}
       LANGCHAIN_TRACING_V2: "true"
-      LANGCHAIN_PROJECT: "ada_project"
+      LANGCHAIN_PROJECT: "workpods_agent"
       # Swagger/OpenAPI configuration
       ROOT_PATH: "/orchestrator/"
       DOCS_URL: "/orchestrator/docs"

@@ -1,6 +1,6 @@
 {
   "graphs": {
-    "ada_project": "src/agent.py:agent"
+    "workpods_agent": "src/agent.py:agent"
   },
   "dependencies": [
     "."

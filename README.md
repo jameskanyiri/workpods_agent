@@ -1,6 +1,6 @@
-# ADA Finance
+# Workpods Agent
 
-AI-powered accounting assistant for Kenyan SMEs, built with LangGraph. Handles bookkeeping, tax compliance, payroll, bank reconciliation, and document generation through structured workflows and domain-specific skills.
+AI workspace agent for the Workpods platform, built with LangGraph. Handles project management, task tracking, milestone coordination, and document generation through structured workflows and domain-specific skills.
 
 ## Prerequisites
 
@@ -27,7 +27,7 @@ TAVILY_API_KEY=your_tavily_api_key
 LANGSMITH_ENDPOINT=https://api.smith.langchain.com
 LANGSMITH_API_KEY=your_langsmith_key
 LANGSMITH_TRACING=true
-LANGSMITH_PROJECT=ada_agent
+LANGSMITH_PROJECT=workpods_agent
 
 # LangGraph
 LANGGRAPH_API_URL=http://localhost:2024
@@ -85,7 +85,7 @@ You should see:
 
 ## WhatsApp Integration
 
-The agent exposes a `/webhook` endpoint for WhatsApp Cloud API integration, allowing users to interact with ADA Finance directly via WhatsApp.
+The agent exposes a `/webhook` endpoint for WhatsApp Cloud API integration, allowing users to interact with Workpods Agent directly via WhatsApp.
 
 ### Setup
 
@@ -151,7 +151,7 @@ docker-compose up --build
 
 | Service | Host Port | Container Port | Description |
 |---------|-----------|----------------|-------------|
-| ADA Finance | 8120 | 8000 | LangGraph API |
+| Workpods Agent | 8120 | 8000 | LangGraph API |
 | PostgreSQL | 5430 | 5432 | Persistent database |
 | Redis | 6379 | 6379 | Cache / state store |
 
@@ -179,15 +179,12 @@ src/
 ├── prompt/                   # Dynamic system prompt
 ├── llm/                      # LLM selection middleware
 ├── middleware/                # Context injection middleware
-├── tools/                    # 14 agent tools
+├── tools/                    # Agent tools
 ├── subagents/                # Delegated task agents
 ├── skills/                   # Domain-specific workflows
-│   ├── bank-reconciliation/
-│   ├── journal-entry/
-│   ├── payroll/
-│   ├── tax-compliance/
-│   ├── mpesa-integration/
-│   └── ...
+│   ├── project/              # Project management skill
+│   ├── task/                 # Task management skill
+│   └── milestone/            # Milestone tracking skill
 └── utils/
 ```
 
@@ -195,4 +192,4 @@ src/
 
 ## License
 
-This project is part of the ADA platform ecosystem.
+This project is part of the Workpods platform ecosystem.

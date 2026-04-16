@@ -24,3 +24,18 @@ class AgentContext(BaseModel):
         description="The preferred LLM to use for the agent (all models support tool calling)",
     )
 
+    access_token: str = Field(
+        default="",
+        description="JWT access token for the Workpods backend API",
+    )
+
+    refresh_token: str = Field(
+        default="",
+        description="JWT refresh token for obtaining new access tokens",
+    )
+
+    workspace_id: str = Field(
+        default="",
+        description="Current workspace UUID. If empty, the agent will resolve it via GET /v1/workspaces/default.",
+    )
+

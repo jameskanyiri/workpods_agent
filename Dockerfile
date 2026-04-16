@@ -10,7 +10,7 @@ ADD . /app
 RUN PYTHONDONTWRITEBYTECODE=1 uv pip install --system --no-cache-dir -c /api/constraints.txt -e .
 
 # Set LANGSERVE_GRAPHS path using the proper path to your graph
-ENV LANGSERVE_GRAPHS='{"ada_project": "/app/src/agents/main_agent/graph.py:graph"}'
+ENV LANGSERVE_GRAPHS='{"workpods_agent": "/app/src/agents/main_agent/graph.py:graph"}'
 
 # Create minimal API module structure (used by base image expectations)
 RUN mkdir -p /api/langgraph_api /api/langgraph_runtime /api/langgraph_license && \

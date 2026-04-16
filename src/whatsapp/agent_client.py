@@ -7,7 +7,7 @@ LANGGRAPH_API_URL = os.environ.get("LANGGRAPH_API_URL", "http://localhost:2024")
 THREAD_NAMESPACE = os.environ.get(
     "THREAD_NAMESPACE", "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
 )
-GRAPH_NAME = "ada_project"
+GRAPH_NAME = "workpods_agent"
 
 
 def get_thread_id(phone_number: str) -> str:

@@ -42,19 +42,16 @@ def _build_media_prompt(msg_type: str, message: dict) -> str | None:
 
     if msg_type == "image":
         return (
-            f"User sent an image [media_id: {media_id}, mime_type: {mime_type}].{caption_part} "
-            "Use the process_media tool to retrieve and analyze it."
+            f"User sent an image [media_id: {media_id}, mime_type: {mime_type}].{caption_part}"
         )
     if msg_type == "document":
         filename = media_info.get("filename", "unknown")
         return (
-            f"User sent a document '{filename}' [media_id: {media_id}, mime_type: {mime_type}].{caption_part} "
-            "Use the process_media tool to retrieve and process it."
+            f"User sent a document '{filename}' [media_id: {media_id}, mime_type: {mime_type}].{caption_part}"
         )
     if msg_type == "audio":
         return (
-            f"User sent an audio message [media_id: {media_id}, mime_type: {mime_type}]. "
-            "Use the process_media tool to retrieve it."
+            f"User sent an audio message [media_id: {media_id}, mime_type: {mime_type}]."
         )
     return None
 
