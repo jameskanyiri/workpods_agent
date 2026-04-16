@@ -26,6 +26,29 @@ Use this skill when the user says things like:
 - "what comments are on this task"
 - "edit the comment"
 
+## Agent-Initiated Triggers
+
+The agent should also activate this skill **without being asked** when an event in the conversation
+just generated information the task record itself doesn't carry:
+
+- A meaningful task just completed AND something concrete was delivered, learned, or unblocked
+  ("8 workflows mapped, 3 flagged as pilot candidates", not "task done")
+- A blocker on a task just cleared (assignee added to a stalled task, status moved out of
+  "blocked", missing dependency resolved) — log what unblocked it
+- A decision was made in chat that lives nowhere on the task record ("we're going with the
+  consulting firm", "out of scope for this task: mobile") — capture it on the right task
+
+**Skip when:**
+- The status change alone tells the story (the activity log already captured `task.status_changed`)
+- There's no new content beyond "task done" — that's a tautology, not a comment
+- The moment is project-scope or stakeholder-relevant, not task-scope. In that case post a
+  *project update* instead and reference the task inside it. Don't double-post a comment plus an
+  update for the same event.
+
+**Approval pattern: comments are auto.** State in plain English what you'll write before posting,
+then post it, then confirm it landed. Don't ask permission for every comment — but do show the
+draft text so the user can intercept if it's wrong.
+
 ## Workflow
 
 1. Resolve workspace, project, and task.

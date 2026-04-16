@@ -49,7 +49,7 @@ Prefer `commercial-lifecycle` first when the user is really asking:
 5. For multi-step work, create todos before writes.
 6. If the user is describing a phase, convert it into a milestone proposal with:
    - name
-   - target date
+   - `start_date` and/or `end_date` (YYYY-MM-DD; the milestone API has no separate `target_date` field — see `references/api.md`)
    - definition of done
    - task grouping or follow-up task plan
 7. Confirm before milestone creation or bulk task linkage.
@@ -84,7 +84,7 @@ Prefer `commercial-lifecycle` first when the user is really asking:
 - Save milestone-scoped long-form documents under `/.workpods-agent/projects/<project-slug>/milestones/<milestone-slug>/` when needed.
 - Record:
   - milestone purpose
-  - target date
+  - `start_date` and `end_date` (YYYY-MM-DD)
   - definition of done
   - related tasks or missing tasks
   - current risk or blockers
@@ -100,7 +100,9 @@ Prefer `commercial-lifecycle` first when the user is really asking:
 
 ## Completion Criteria
 
-- The milestone exists or the requested milestone decision has been framed clearly.
+- The milestone exists AND every attribute set during the request — internally verified against the API response for `name`, `status_id`, `start_date`, `end_date`, etc. — has been confirmed by reading the milestone back. A 200 response is not verification; the fields the agent intended to set must appear populated in the GET response.
+- The user-facing report uses plain English, not API field names: "title", "status", "start date", "end date", "description" — never `name`, `status_id`, `start_date`, or backticked identifiers. Verify in schema vocabulary; communicate in project vocabulary.
+- Any attribute the user mentioned but did not set is explicitly surfaced as a loose end in plain English (e.g., "you didn't give a start date — want one or leave it blank?"), not silently dismissed as "optional."
 - Linked tasks are accounted for or the missing task gap is explicit.
 - The milestone scratchpad is current.
 - The user receives the next action needed to move the milestone or service period forward.

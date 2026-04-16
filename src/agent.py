@@ -13,7 +13,6 @@ from src.middleware.auth_middleware.middleware import AuthMiddleware
 from src.middleware.filesystem_middleware.middleware import FilesystemMiddleware
 from src.middleware.skills_middleware.middleware import SkillsMiddleware
 from src.middleware.loop_detection.middleware import LoopDetectionMiddleware
-from src.middleware.pre_completion_check.middleware import PreCompletionCheckMiddleware
 from src.middleware.summarization.middleware import SummarizationMiddleware
 
 
@@ -28,7 +27,6 @@ agent = create_agent(
         SkillsMiddleware(),
         TodoListMiddleware(),
         LoopDetectionMiddleware(),
-        PreCompletionCheckMiddleware(),
         dynamic_model_selector,
         context_aware_prompt,
     ],

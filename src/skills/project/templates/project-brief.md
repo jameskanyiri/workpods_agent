@@ -6,8 +6,8 @@
 - Scope:
 - Location:
 - Status:
-- Start date:
-- Target date:
+- start_date (YYYY-MM-DD):
+- end_date (YYYY-MM-DD):
 
 ## People
 - Lead:

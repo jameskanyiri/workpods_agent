@@ -8,7 +8,7 @@
 4. Update the project brief scratchpad.
 5. Present a concise setup summary and confirm.
 6. Create the project.
-7. Re-read the project when target dates, lead fields, or statuses matter.
+7. GET the project after creation and verify each field you set (`start_date`, `end_date`, `lead_user_id`, `member_ids`, `status_id`, etc.) actually appears populated in the response. The API silently drops unknown fields, so a 200 is not verification.
 8. Recommend milestone-first structure if the project is still at a phase-level description.
 
 ## Project repair

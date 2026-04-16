@@ -25,7 +25,7 @@ Use this skill when the user says things like:
 - "create a new project"
 - "set up this client project"
 - "rename the project"
-- "set the target date"
+- "set the start date" / "set the end date" / "set the target date" (the API uses `start_date` and `end_date` — see `references/api.md`)
 - "assign James as lead"
 - "fix the project details"
 - "what have we done on this project"
@@ -67,7 +67,7 @@ Prefer `commercial-lifecycle` first when the user is really asking about:
 - If the request is to fix or confirm a project field, read the project first instead of asking the user to repeat what they already provided.
 - If the request is really about business movement, lifecycle risk, renewal, recovery, or account prioritization, hand off to `commercial-lifecycle` before writing project metadata.
 - Normalize relative dates to exact `YYYY-MM-DD` values before writing.
-- Treat project status and target date as support for business movement, not as the success condition by themselves.
+- Treat project status and dates (`start_date`, `end_date`) as support for business movement, not as the success condition by themselves.
 - If a critical project field did not persist, treat the flow as incomplete and repair it after confirmation.
 - If the user asks for a structured reusable output tied to the project, save it to a stable project file and respond in chat with a short summary.
 - If the project document should persist beyond the current run, read `persistent-files` and save it into the backend files API under the `project` home.
@@ -81,7 +81,7 @@ Prefer `commercial-lifecycle` first when the user is really asking about:
 - Status ids must come from workspace project statuses; do not guess them.
 - Do not treat project updates, milestones, or tasks as project metadata.
 - Do not treat project metadata cleanup as the main goal when the business issue is follow-up, quote progression, renewal, or reactivation.
-- If the project was created successfully but a target date or lead did not persist, do not stop at "it created"; repair the record.
+- If the project was created successfully but `start_date`, `end_date`, `lead_user_id`, or any other user-specified field did not persist, do not stop at "it created"; repair the record. The API silently drops unknown fields, so always GET the project back and confirm each intended field appears populated.
 
 ## Scratchpad Contract
 
@@ -89,7 +89,7 @@ Prefer `commercial-lifecycle` first when the user is really asking about:
 - Save reusable project deliverables under `/.workpods-agent/projects/<project-slug>/` using stable names such as `project-brief.md`, `status-review.md`, `action-plan.md`, or `meeting-summary.md`.
 - Record:
   - project objective and scope
-  - exact start and target dates
+  - exact `start_date` and `end_date` (YYYY-MM-DD)
   - lead and member decisions
   - status choice
   - known next structural move
@@ -107,7 +107,8 @@ Prefer `commercial-lifecycle` first when the user is really asking about:
 
 ## Completion Criteria
 
-- The project record exists or the requested project update is applied.
-- Critical persisted fields have been verified when relevant.
+- The project record exists or the requested project update is applied AND every attribute set during the request — internally verified against the API response for `name`, `status_id`, `start_date`, `end_date`, `lead_user_id`, `member_ids`, etc. — has been confirmed by reading the project back. A 200 response is not verification; the fields the agent intended to set must appear populated in the GET response.
+- The user-facing report uses plain English, not API field names: "title", "status", "lead", "team members", "start date", "end date", "short summary" — never `name`, `status_id`, `lead_user_id`, `member_ids`, `summary`, or backticked identifiers. Verify in schema vocabulary; communicate in project vocabulary.
+- Any attribute the user mentioned but did not set is explicitly surfaced as a loose end in plain English (e.g., "you didn't give an end date for the project — want one or leave it blank?"), not silently dismissed as "optional."
 - The project brief scratchpad is current when a reusable project document was needed.
 - The user has a concrete next recommended step grounded in project state and, when relevant, business stage.
