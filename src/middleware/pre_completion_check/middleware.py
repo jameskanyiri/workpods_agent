@@ -17,6 +17,7 @@ from typing import Any
 
 from langchain.agents.middleware.types import AgentMiddleware, hook_config
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.runtime import Runtime
 
 from src.middleware.pre_completion_check.state import PreCompletionCheckState
@@ -41,6 +42,25 @@ class PreCompletionCheckMiddleware(AgentMiddleware[PreCompletionCheckState]):
     def __init__(self, max_checks: int = 1) -> None:
         super().__init__()
         self._max_checks = max_checks
+
+    def before_agent(
+        self, state: PreCompletionCheckState, runtime: Runtime, config: RunnableConfig
+    ) -> dict[str, Any] | None:
+        """Reset the verification counter at the start of each run.
+
+        Without this, the counter persists in checkpointed state across runs
+        within the same thread, causing the verification to never fire after
+        the first run.
+        """
+        if state.get("_completion_check_count", 0) > 0:
+            return {"_completion_check_count": 0}
+        return None
+
+    async def abefore_agent(
+        self, state: PreCompletionCheckState, runtime: Runtime, config: RunnableConfig
+    ) -> dict[str, Any] | None:
+        """Async variant of before_agent."""
+        return self.before_agent(state, runtime, config)
 
     def _is_completion_attempt(self, state: PreCompletionCheckState) -> bool:
         """Check if the last AI message has no tool calls (agent wants to stop)."""
