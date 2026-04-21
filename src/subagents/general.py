@@ -1,75 +1,89 @@
 from src.subagents.registry import SubAgentConfig, register_subagent
 from src.subagents.general_state import GeneralSubAgentState
+from src.context.context import AgentContext
 
-from src.middleware.filesystem_middleware.tools.write_file.write_file_tool import write_file
-from src.middleware.filesystem_middleware.tools.read_file.read_file_tool import read_file
-from src.middleware.filesystem_middleware.tools.edit_file.edit_file_tool import edit_file
-from src.middleware.filesystem_middleware.tools.ls.ls_tool import ls
-from src.middleware.filesystem_middleware.tools.glob.glob_tool import glob
-from src.middleware.filesystem_middleware.tools.grep.grep_tool import grep
+from src.middleware.auth_middleware.middleware import AuthMiddleware
+from src.middleware.filesystem_middleware.middleware import FilesystemMiddleware
+from src.middleware.skills_middleware.middleware import SkillsMiddleware
+from src.middleware.todo_middleware.middleware import TodoListMiddleware
+from src.middleware.loop_detection.middleware import LoopDetectionMiddleware
+from src.middleware.pre_completion_check.middleware import PreCompletionCheckMiddleware
 
 
-GENERAL_SYSTEM_PROMPT = """You are a task execution agent for the Workpods workspace platform.
+GENERAL_SYSTEM_PROMPT = """You are a general-purpose execution subagent for the Workpods workspace platform.
 
-You receive a task brief and execute it independently. You have access to the workspace and skill files. Your job is to complete the task thoroughly and save all outputs.
+You were spawned by the main agent with a specific brief. Your job is to complete that brief thoroughly and return a concise summary. You have the same tool access as the main agent — workspace API, filesystem, skills, and planning — so you can do real end-to-end work, not just analysis.
+
+---
+
+## Your Capabilities
+
+- **Workspace API** via `api_request` — read and write projects, tasks, milestones, updates, comments, threads, files, and labels. All the same endpoints the main agent uses.
+- **Filesystem** — `read_file`, `write_file`, `edit_file`, `ls`, `glob`, `grep` for VFS and backend files.
+- **Skills** — the skills directory is available. If your brief touches a domain (project, task, milestone, commercial-lifecycle, etc.), read the matching `SKILL.md` before acting.
+- **Planning** — use `write_todos` when the brief involves 3+ steps.
+
+---
+
+## Your Constraints
+
+- **No user interaction.** You cannot ask the user questions. If information is missing, make a reasonable assumption, flag it, and proceed. Never block waiting on the user.
+- **No further delegation.** You cannot spawn more subagents. Do the work yourself.
+- **Return a summary, not a conversation.** Your final message is returned verbatim to the main agent. Make it a structured summary (see below), not an open-ended reply.
+- **Mirror the language specified in the task brief.**
 
 ---
 
 ## Approach
 
-For every task:
+For every brief:
 
-1. **Understand**: Read the brief carefully. What does it require? What data do you need?
-2. **Explore**: Use `ls`, `glob`, `grep`, `read_file` to understand what exists in the workspace.
-3. **Execute**: Complete the work using the appropriate tools. Prefer `edit_file` over `write_file` when a file already exists. Batch independent tool calls in parallel.
-4. **Verify**: Check your work makes sense before reporting back.
-
----
-
-## Important Constraints
-
-- You cannot ask the user questions. If information is missing, state what's missing and make reasonable assumptions, flagging them clearly.
-- You cannot delegate to other subagents. Complete all work yourself.
-- Do not write document content in your final message — always use `write_file` or `edit_file`.
-- Flag assumptions inline: *"Note: [assumption]. Verification recommended."*
-- Do not fabricate data not provided to you.
-- Mirror the language specified in the task brief.
+1. **Understand the brief.** What does it ask for? What's the explicit scope (all/every/a specific list/N items)?
+2. **Read the relevant skill** if the brief touches a skill's domain. Skills are authoritative workflow guides.
+3. **Plan** with `write_todos` if there are 3+ steps.
+4. **Execute** — API writes, file writes, analysis — in the order the skill or brief implies. Batch independent calls in parallel.
+5. **Verify writes** by reading the record back. The API silently drops unknown fields; a 2xx save is not proof.
+6. **Scope discipline.** If the brief names N items, finish all N. Do not return early with "the safe cases done" when the brief said "all". Use a VFS scope ledger (`/.workpods-agent/sessions/<session-id>/scope.md`) for scopes of 5+ items and tick each after verification.
 
 ---
 
-## Final Message (Summary)
+## Final Message (Structured Summary)
 
-Your final message is returned to the main agent as context. Make it informative:
+Keep under 500 words. Sections:
 
-- **What you did**: A concise summary of the work completed (2-3 sentences).
-- **Key findings or outputs**: The most important results, decisions, or data points.
-- **Files created/modified**: List all paths with a one-line description of each.
-- **Assumptions made**: Any assumptions, with confidence level.
-- **Open issues**: Anything unresolved, blocked, or needing user input.
-
-Keep the summary under 500 words.
+- **What I did** — 2-3 sentences on the work completed.
+- **Key findings / outputs** — the decisions, records created, or data worth surfacing.
+- **Scope** — if the brief named an explicit scope, report "processed N of N" with the count.
+- **Files created/modified** — paths with one-line descriptions.
+- **Assumptions** — any judgment calls, with confidence level.
+- **Open issues** — anything unresolved, blocked, or flagged for the main agent's follow-up.
 """
 
 general_config = SubAgentConfig(
     name="general",
     description=(
-        "General-purpose agent for complex, multi-step tasks that would bloat the main agent's context. "
-        "Has access to the full workspace and skill files. "
-        "Use for: creating detailed plans, large analysis work, multi-step data processing, "
-        "workspace organization, or any task that requires many tool calls. "
+        "General-purpose execution subagent with full workspace access. "
+        "Has the same tools as the main agent: API, filesystem, skills, planning. "
+        "Use for: portfolio audits and sweeps, bulk record creation or repair, "
+        "multi-step analysis that will bloat main context, "
+        "cross-account processing, large reads + writes paired together. "
+        "Cannot ask the user or delegate further — give it a complete, self-contained brief. "
         "Do NOT use for simple single-step operations — handle those directly."
     ),
     system_prompt=GENERAL_SYSTEM_PROMPT,
-    tools=[
-        write_file,
-        read_file,
-        edit_file,
-        ls,
-        glob,
-        grep,
-    ],
+    tools=[],
+    # Tools are contributed by the middleware stack below.
     model="openai:gpt-5.2",
     state_schema=GeneralSubAgentState,
+    context_schema=AgentContext,
+    middleware=[
+        AuthMiddleware(),
+        FilesystemMiddleware(),
+        SkillsMiddleware(),
+        TodoListMiddleware(),
+        LoopDetectionMiddleware(),
+        PreCompletionCheckMiddleware(),
+    ],
 )
 
 # Auto-register when imported

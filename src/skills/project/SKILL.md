@@ -83,6 +83,18 @@ Prefer `commercial-lifecycle` first when the user is really asking about:
 - Do not treat project metadata cleanup as the main goal when the business issue is follow-up, quote progression, renewal, or reactivation.
 - If the project was created successfully but `start_date`, `end_date`, `lead_user_id`, or any other user-specified field did not persist, do not stop at "it created"; repair the record. The API silently drops unknown fields, so always GET the project back and confirm each intended field appears populated.
 
+### Portfolio operations (bulk project repair / audit)
+
+When the user says "all projects", "every project", "across the portfolio", or names an explicit list of 5+ projects:
+
+1. Enumerate the full target list first — paginate reads or delegate the scan to a sub-agent. Target count is N (the full list), not "a safe subset".
+2. Write a scope ledger at `/.workpods-agent/sessions/<session-id>/scope.md` as a markdown checkbox list: one line per project with its name and UUID. If a sub-agent returned the list, port it verbatim.
+3. Process projects in batches. After each project write, read the project back, verify the intended fields, and tick its box in the ledger.
+4. Before summarizing to the user, re-read the ledger. If any box is unticked, keep working — do not declare done, do not ask the user for permission to continue the remainder.
+5. The final summary must lead with "processed N of N projects" in plain English.
+
+Common failure mode to avoid: finishing 4 of 200 and framing the remainder as a "second sweep" for later. If the user said "all", finish all.
+
 ## Scratchpad Contract
 
 - Maintain `/.workpods-agent/projects/<project-slug>/brief.md`.

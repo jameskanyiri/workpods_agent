@@ -51,7 +51,7 @@ async def get_media_url(media_id: str) -> tuple[str, str]:
 
 async def download_media(url: str) -> bytes:
     """Download media binary data from a WhatsApp media URL."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         res = await client.get(
             url,
             headers={"Authorization": f"Bearer {_token()}"},

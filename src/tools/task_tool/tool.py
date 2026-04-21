@@ -64,20 +64,37 @@ async def task(
         # Use per-config state schema, falling back to default SubAgentState
         state_schema = config.state_schema or SubAgentState
 
-        # Create a fresh subagent instance
-        sub_kwargs = dict(
+        # Create a fresh subagent instance. Middleware and context_schema are
+        # optional — subagents that opt into the main agent's middleware stack
+        # get api_request, skills, write_todos, and pre-completion verification
+        # for free.
+        sub_kwargs: dict = dict(
             model=init_chat_model(model_name),
             tools=config.tools,
             state_schema=state_schema,
             system_prompt=config.system_prompt,
         )
+        if config.middleware:
+            sub_kwargs["middleware"] = config.middleware
+        if config.context_schema is not None:
+            sub_kwargs["context_schema"] = config.context_schema
+
         sub = create_agent(**sub_kwargs)
 
         # Pass the main agent's VFS so the subagent can read existing files
         parent_vfs = runtime.state.get("vfs", {})
 
+        # Seed auth + workspace from parent state so subagents with
+        # AuthMiddleware + api_request can hit the API immediately without
+        # re-resolving credentials. AuthMiddleware reads from state as a
+        # fallback when runtime.context lacks a token.
+        parent_state = runtime.state
+        parent_access_token = parent_state.get("access_token", "")
+        parent_refresh_token = parent_state.get("refresh_token", "")
+        parent_workspace_id = parent_state.get("workspace_id", "")
+
         # Build initial state based on schema
-        initial_state = {
+        initial_state: dict = {
             "messages": [{"role": "user", "content": human_message}],
             "vfs": dict(parent_vfs),
         }
@@ -87,7 +104,16 @@ async def task(
             if 'active_skill' in state_schema.__annotations__:
                 initial_state["active_skill"] = ""
 
-        # Invoke with clean state
+        if parent_access_token:
+            initial_state["access_token"] = parent_access_token
+        if parent_refresh_token:
+            initial_state["refresh_token"] = parent_refresh_token
+        if parent_workspace_id:
+            initial_state["workspace_id"] = parent_workspace_id
+
+        # Invoke with clean state. Auth fields are seeded into initial_state
+        # above, so AuthMiddleware reads them via its state fallback — we don't
+        # need to forward runtime.context through ainvoke.
         result = await sub.ainvoke(
             initial_state,
             config={"recursion_limit": 1000},

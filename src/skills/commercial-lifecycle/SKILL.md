@@ -117,6 +117,18 @@ When the user is asking to act on the portfolio rather than just review it:
 - Do not call an account healthy just because it is `CURRENT MC` or `UNDER WAR` if dates are stale or no next action exists.
 - Do not create a workspace document for simple project, task, or milestone edits that should be executed directly.
 
+### Portfolio operations (cross-account sweeps)
+
+When the user's request spans the full portfolio or an explicit list of 5+ accounts — e.g. "which accounts are at highest expiry risk", "reactivate all expired MC this month", "fix the follow-up across every PROPOSAL SENT project", "audit all warranty accounts":
+
+1. Enumerate the full target list first. Paginate reads or delegate the scan to a sub-agent. Target count is N (the full list), not "the obvious ones".
+2. Write a scope ledger at `/.workpods-agent/sessions/<session-id>/scope.md` as a markdown checkbox list: one line per account with project name and UUID. If a sub-agent returned the list, port it verbatim.
+3. Process accounts in batches. After each account's writes (task, update, comment, milestone, or project edit), verify the record changed as intended, and tick the box in the ledger.
+4. Before summarizing to the user, re-read the ledger. If any box is unticked, keep working — do not declare done, do not ask permission to continue a remainder the user already asked for.
+5. The final summary must lead with "processed N of N accounts" in plain English.
+
+Common failure mode to avoid: finishing a handful of "safe" or "clear" accounts and framing the rest as a second sweep for later. If the user scoped "all", "every", or gave an explicit list, finish all of it.
+
 ## Scratchpad Contract
 
 - Maintain `/.workpods-agent/sessions/<session-id>/plan.md` for multi-step triage and execution.

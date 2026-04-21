@@ -16,9 +16,15 @@ def get_thread_id(phone_number: str) -> str:
 
 
 async def get_agent_response(
-    phone_number: str, user_message: str, sender_name: str = ""
+    phone_number: str,
+    user_message: str | list[dict],
+    sender_name: str = "",
 ) -> str:
-    """Send a message to the LangGraph agent and return the AI response."""
+    """Send a message to the LangGraph agent and return the AI response.
+
+    `user_message` may be a plain string (for text messages) or a list of
+    LangChain-standard content blocks (for images, PDFs, and other files).
+    """
     client = get_client(url=LANGGRAPH_API_URL)
     thread_id = get_thread_id(phone_number)
 

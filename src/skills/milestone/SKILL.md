@@ -40,7 +40,8 @@ Prefer `commercial-lifecycle` first when the user is really asking:
 1. Resolve workspace and target project.
 2. Read:
    - milestone statuses
-   - current project detail for existing milestones and tasks
+   - current project detail for existing milestones, tasks, and the project's current `status_id`
+   - **if the next action is a milestone create or a `milestone_type_id` change** → also fetch the allowed milestone types for the project's current status via `GET /v1/workspaces/{workspace_id}/project-statuses/{project_status_id}/milestone-types`. This is the rule table the backend validates against; skipping it is the #1 cause of silent create failures.
 3. Decide the operating mode:
    - direct action for simple milestone CRUD or linkage changes
    - draft-first for complex phase planning, readiness review, or multi-record milestone restructuring
@@ -49,12 +50,14 @@ Prefer `commercial-lifecycle` first when the user is really asking:
 5. For multi-step work, create todos before writes.
 6. If the user is describing a phase, convert it into a milestone proposal with:
    - name
+   - **`milestone_type_id` — resolved from the stage's allowed-types list**, matched semantically to the user's intent (e.g. "excavation", "site tour", "scheduled service"). If multiple allowed types could fit, ask the user via `ask_user_input` using 2–4 labels pulled from the allowed list verbatim. Never invent or guess a type.
+   - `status_id` (optional — falls back to workspace default)
    - `start_date` and/or `end_date` (YYYY-MM-DD; the milestone API has no separate `target_date` field — see `references/api.md`)
    - definition of done
    - task grouping or follow-up task plan
 7. Confirm before milestone creation or bulk task linkage.
 8. Write the milestone or milestone update.
-9. Verify linkage or current milestone state if the flow depends on it.
+9. Verify linkage or current milestone state if the flow depends on it. For creates, verify `milestone_type_id` on the read-back — it's silently droppable like any other field.
 
 ## Decision Rules
 
@@ -72,6 +75,9 @@ Prefer `commercial-lifecycle` first when the user is really asking:
 ## Gotchas
 
 - Milestone statuses are separate from task and project statuses.
+- **`milestone_type_id` is required on create** — the Pydantic schema says Optional, the service layer rejects creates without it (`MILESTONE_TYPE_REQUIRED`). Always resolve via the project's stage allow-list before writing.
+- **Milestone types are stage-gated.** Each project status has an explicit allow-list of types. A type valid in the workspace but not in the current stage's allow-list fails with `MILESTONE_TYPE_NOT_ALLOWED_FOR_STAGE`. If the user's intended type isn't allowed, the fix is usually "move the project to the stage where that type lives" — not "pick a different type to make the write succeed." Surface the tradeoff; don't silently swap intent.
+- If the project has no `status_id` (`PROJECT_STATUS_MISSING`), you can't create milestones at all. Resolve the project status first.
 - Tasks survive milestone deletion, so verify `milestone_id` linkage after updates that matter.
 - Do not present milestone progress without reading both milestone and task state.
 - A renewal bottleneck is often follow-up, ownership, billing, or stale dates rather than missing milestone structure.
@@ -100,7 +106,7 @@ Prefer `commercial-lifecycle` first when the user is really asking:
 
 ## Completion Criteria
 
-- The milestone exists AND every attribute set during the request — internally verified against the API response for `name`, `status_id`, `start_date`, `end_date`, etc. — has been confirmed by reading the milestone back. A 200 response is not verification; the fields the agent intended to set must appear populated in the GET response.
+- The milestone exists AND every attribute set during the request — internally verified against the API response for `name`, `status_id`, `milestone_type_id`, `start_date`, `end_date`, etc. — has been confirmed by reading the milestone back. A 200 response is not verification; the fields the agent intended to set must appear populated in the GET response.
 - The user-facing report uses plain English, not API field names: "title", "status", "start date", "end date", "description" — never `name`, `status_id`, `start_date`, or backticked identifiers. Verify in schema vocabulary; communicate in project vocabulary.
 - Any attribute the user mentioned but did not set is explicitly surfaced as a loose end in plain English (e.g., "you didn't give a start date — want one or leave it blank?"), not silently dismissed as "optional."
 - Linked tasks are accounted for or the missing task gap is explicit.

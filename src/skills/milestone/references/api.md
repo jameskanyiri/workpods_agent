@@ -20,6 +20,21 @@ Milestone statuses (workspace-scoped — read these BEFORE writing a milestone i
 - `PATCH /v1/workspaces/{workspace_id}/milestone-statuses/reorder`                      — reorder
 - `DELETE /v1/workspaces/{workspace_id}/milestone-statuses/{status_id}?move_to_status_id={uuid}` — delete (must reassign)
 
+Milestone types (workspace-scoped — **required** for every milestone create; read these FIRST):
+
+- `GET   /v1/workspaces/{workspace_id}/milestone-types`                                 — list all milestone types in this workspace (each returns `id`, `code`, `name`, `description`, `is_active`, `project_status_ids`)
+- `POST  /v1/workspaces/{workspace_id}/milestone-types`                                 — create type (admin)
+- `PATCH /v1/workspaces/{workspace_id}/milestone-types/{type_id}`                       — update type (admin)
+- `PATCH /v1/workspaces/{workspace_id}/milestone-types/reorder`                         — reorder (admin)
+- `DELETE /v1/workspaces/{workspace_id}/milestone-types/{type_id}`                      — delete (admin)
+
+Project-status → milestone-type mapping (stage-gated type list — the rule table the milestone create validates against):
+
+- `GET  /v1/workspaces/{workspace_id}/project-statuses/{project_status_id}/milestone-types`                          — list types **allowed** under this project status
+- `PUT  /v1/workspaces/{workspace_id}/project-statuses/{project_status_id}/milestone-types`                          — replace the entire allowed-types set (admin)
+- `POST /v1/workspaces/{workspace_id}/project-statuses/{project_status_id}/milestone-types/{milestone_type_id}`      — add one allowed type (admin)
+- `DELETE /v1/workspaces/{workspace_id}/project-statuses/{project_status_id}/milestone-types/{milestone_type_id}`    — remove one allowed type (admin)
+
 Status categories (swimlane headers):
 
 - `GET   /v1/workspaces/{workspace_id}/milestone-status-categories`                     — list
@@ -41,6 +56,7 @@ Never use flat paths like `/v1/milestones`.
 | `name` | string | yes | — | 1–200 chars |
 | `description` | string | no | null | — |
 | `status_id` | UUID | no | workspace default milestone status | Must belong to the same workspace. If omitted and no default exists, returns `NO_DEFAULT_MILESTONE_STATUS`. |
+| `milestone_type_id` | UUID | **yes** | — | Required by the service even though the Pydantic schema marks it optional. Must belong to the same workspace AND be in the allowed-types set for the parent project's current `status_id`. See type-resolution flow below. |
 | `start_date` | date (YYYY-MM-DD) | no | null | — |
 | `end_date` | date (YYYY-MM-DD) | no | null | — |
 
@@ -55,6 +71,7 @@ All fields optional. Same shape as create:
 | `name` | string | 1–200 chars |
 | `description` | string | — |
 | `status_id` | UUID | Must belong to the same workspace |
+| `milestone_type_id` | UUID | If changed, the new type is re-validated against the project's current stage (`MILESTONE_TYPE_NOT_ALLOWED_FOR_STAGE` if not allowed). |
 | `start_date` | date | — |
 | `end_date` | date | — |
 
@@ -89,9 +106,31 @@ Before writing a milestone where `status_id` matters:
 
 For status review, use `is_done` to mark completion semantics — the agent should treat `is_done=true` as "this milestone is finished," not just "active."
 
+## Milestone type resolution — MANDATORY before create
+
+Milestones are **stage-gated**: each project status has an explicit allow-list of milestone types. A milestone create that omits `milestone_type_id`, or passes one not allowed for the project's current `status_id`, is rejected at the service layer (not by Pydantic).
+
+Do this flow before **every** milestone create:
+
+1. **Read the parent project** to get its current `status_id` (`GET /v1/workspaces/{workspace_id}/projects/{project_id}`).
+2. **Fetch the allowed types for that stage**:
+   `GET /v1/workspaces/{workspace_id}/project-statuses/{project_status_id}/milestone-types`
+   → returns `data: list[MilestoneTypeOut]` with `id`, `code`, `name`, `description`.
+3. **Match the user's intent** (e.g. "excavation", "site tour", "installation", "scheduled service") against the returned `name`/`code` values. Use the closest semantic match; if ambiguous, ask the user via `ask_user_input` with 2–4 labels pulled straight from the allowed-list.
+4. **Pass that `id` as `milestone_type_id`** on the create body, alongside `name`, `status_id`, `start_date`, `end_date`, and `description` as needed.
+5. **Read back** and verify `milestone_type_id` persisted exactly as sent.
+
+If the project has no `status_id`, you'll get `PROJECT_STATUS_MISSING` — fix the project status first; you can't create milestones on a statusless project.
+
+If `GET /project-statuses/{id}/milestone-types` returns an empty list, the workspace admin hasn't mapped any types to that stage. Surface this clearly ("this project stage has no allowed milestone types configured in the workspace — an admin needs to map them before milestones can be created here"); don't guess a type.
+
+Fallback when the specific type endpoint returns empty or fails: `GET /v1/workspaces/{workspace_id}/milestone-types` returns every type in the workspace with its `project_status_ids`. Filter client-side for entries whose `project_status_ids` contains the project's current `status_id`. If still empty, the mapping genuinely isn't configured.
+
 ## Gotchas
 
-- **The API silently drops unknown fields** (Pydantic `extra="ignore"` default). A 200 response does not mean your fields persisted. After every milestone create or update, GET the milestone back and confirm each field you intended to set (`name`, `status_id`, `start_date`, `end_date`) appears populated in the response. If a field came back null when you sent a value, the write failed silently — repair before reporting done.
+- **The API silently drops unknown fields** (Pydantic `extra="ignore"` default). A 200 response does not mean your fields persisted. After every milestone create or update, GET the milestone back and confirm each field you intended to set (`name`, `status_id`, `milestone_type_id`, `start_date`, `end_date`) appears populated in the response. If a field came back null when you sent a value, the write failed silently — repair before reporting done.
+- **`milestone_type_id` is required at the service layer**, even though `CreateMilestoneRequest` declares it Optional. Omitting it returns a 400 with `MILESTONE_TYPE_REQUIRED`. Always resolve the type via the `/project-statuses/{id}/milestone-types` endpoint before creating. Never invent or guess a type ID.
+- **Types are stage-gated.** A valid workspace type that isn't in the project's current stage allow-list returns `MILESTONE_TYPE_NOT_ALLOWED_FOR_STAGE`. If the user asks for a type not allowed in the current stage, two legitimate paths exist: (a) move the project to the correct status first if that's what the user actually wants, or (b) ask an admin to add the type to the stage's allow-list. Don't silently pick a different type to make the write succeed.
 - **No `target_date` field exists.** When a user says "target date", "deadline", or "due date" for a milestone, map to `end_date`. (Tasks have `due_date`; milestones do not.)
 - **Status IDs are workspace-scoped.** Never invent a `status_id`. `STATUS_WORKSPACE_MISMATCH` fires if you pass a status from another workspace.
 - **Tasks survive milestone deletion.** `tasks.milestone_id` is set to NULL via `ON DELETE SET NULL`. After deleting a milestone, expect tasks to remain unlinked — check task `milestone_id` if linkage matters.
@@ -108,6 +147,10 @@ For status review, use `is_done` to mark completion semantics — the agent shou
 | `PROJECT_ID_REQUIRED` | `project_id` missing |
 | `MILESTONE_NAME_REQUIRED` | Empty / whitespace-only name |
 | `NO_DEFAULT_MILESTONE_STATUS` | No `status_id` passed and no default configured |
+| `MILESTONE_TYPE_REQUIRED` | `milestone_type_id` omitted from the create body. Fetch allowed types via `/project-statuses/{status_id}/milestone-types` and retry. |
+| `MILESTONE_TYPE_WORKSPACE_MISMATCH` | The `milestone_type_id` belongs to a different workspace. Re-list types for the current workspace and pick from that set. |
+| `MILESTONE_TYPE_NOT_ALLOWED_FOR_STAGE` | The type is valid in the workspace but not mapped to the project's current `status_id`. Check `/project-statuses/{status_id}/milestone-types` — either choose one of the allowed types, change the project status first, or escalate (admin needs to widen the mapping). |
+| `PROJECT_STATUS_MISSING` | Project has no `status_id`, so allowed milestone types cannot be resolved. Set the project status first. |
 | `STATUS_WORKSPACE_MISMATCH` | Status belongs to a different workspace |
 | `PROJECT_WORKSPACE_MISMATCH` | Project belongs to a different workspace |
 | `MILESTONE_PROJECT_MISMATCH` | Milestone doesn't belong to this project |
